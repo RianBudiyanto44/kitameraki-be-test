@@ -1,23 +1,52 @@
-import { CosmosClient } from "@azure/cosmos";
 import { app, HttpRequest, HttpResponseInit, InvocationContext } from "@azure/functions";
+import { withErrorHandler } from "../middleware/errorHandler";
+import { validateUUID } from "../validators/task.validator";
+import { deleteTask } from "../services/task.service";
 
-export async function DeleteTask(request: HttpRequest, context: InvocationContext): Promise<HttpResponseInit> {
-    context.log(`Http function processed request for url "${request.url}"`);
+/**
+ * DELETE /api/tasks/{id}
+ * Deletes a single task by its ID.
+ *
+ * Route Parameters:
+ *   - id (required): UUID of the task
+ * Query Parameters:
+ *   - organizationId (required): UUID of the organization (partition key)
+ */
+async function DeleteTaskHandler(
+  request: HttpRequest,
+  context: InvocationContext
+): Promise<HttpResponseInit> {
+  const taskId = request.params.id;
+  const organizationId = request.query.get("organizationId");
 
-    const taskId = request.query.get('id');
-    const organizationId = request.query.get('organizationId');
+  context.log(`DELETE /api/tasks/${taskId}`);
 
-    const client = new CosmosClient("this is a connection string");
-    await client.database("TaskApp")
-        .container("Tasks")
-        .item(taskId, organizationId)
-        .delete();
+  // Validate inputs
+  if (!taskId) {
+    return { status: 400, jsonBody: { error: "Task ID is required in the route" } };
+  }
 
-    return { status: 200 };
-};
+  const idError = validateUUID(taskId, "id");
+  if (idError) {
+    return { status: 400, jsonBody: { error: "Validation failed", details: [idError] } };
+  }
 
-app.http('DeleteTask', {
-    methods: ['DELETE'],
-    authLevel: 'anonymous',
-    handler: DeleteTask
+  if (!organizationId) {
+    return { status: 400, jsonBody: { error: "organizationId query parameter is required" } };
+  }
+
+  const orgError = validateUUID(organizationId, "organizationId");
+  if (orgError) {
+    return { status: 400, jsonBody: { error: "Validation failed", details: [orgError] } };
+  }
+
+  await deleteTask(taskId, organizationId);
+  return { status: 204 };
+}
+
+app.http("DeleteTask", {
+  methods: ["DELETE"],
+  authLevel: "anonymous",
+  route: "tasks/{id}",
+  handler: withErrorHandler(DeleteTaskHandler),
 });

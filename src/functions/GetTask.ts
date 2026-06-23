@@ -1,23 +1,52 @@
-import { CosmosClient } from "@azure/cosmos";
 import { app, HttpRequest, HttpResponseInit, InvocationContext } from "@azure/functions";
+import { withErrorHandler } from "../middleware/errorHandler";
+import { validateUUID } from "../validators/task.validator";
+import { getTask } from "../services/task.service";
 
-export async function GetTask(request: HttpRequest, context: InvocationContext): Promise<HttpResponseInit> {
-    context.log(`Http function processed request for url "${request.url}"`);
+/**
+ * GET /api/tasks/{id}
+ * Returns a single task by its ID.
+ *
+ * Route Parameters:
+ *   - id (required): UUID of the task
+ * Query Parameters:
+ *   - organizationId (required): UUID of the organization (partition key)
+ */
+async function GetTaskHandler(
+  request: HttpRequest,
+  context: InvocationContext
+): Promise<HttpResponseInit> {
+  const taskId = request.params.id;
+  const organizationId = request.query.get("organizationId");
 
-    const taskId = request.query.get('id');
-    const organizationId = request.query.get('organizationId');
+  context.log(`GET /api/tasks/${taskId}`);
 
-    const client = new CosmosClient("this is a connection string");
-    const task = await client.database("TaskApp")
-        .container("Tasks")
-        .item(taskId, organizationId)
-        .read();
+  // Validate inputs
+  if (!taskId) {
+    return { status: 400, jsonBody: { error: "Task ID is required in the route" } };
+  }
 
-    return { jsonBody: task.resource, status: 200 };
-};
+  const idError = validateUUID(taskId, "id");
+  if (idError) {
+    return { status: 400, jsonBody: { error: "Validation failed", details: [idError] } };
+  }
 
-app.http('GetTask', {
-    methods: ['GET'],
-    authLevel: 'anonymous',
-    handler: GetTask
+  if (!organizationId) {
+    return { status: 400, jsonBody: { error: "organizationId query parameter is required" } };
+  }
+
+  const orgError = validateUUID(organizationId, "organizationId");
+  if (orgError) {
+    return { status: 400, jsonBody: { error: "Validation failed", details: [orgError] } };
+  }
+
+  const task = await getTask(taskId, organizationId);
+  return { status: 200, jsonBody: task };
+}
+
+app.http("GetTask", {
+  methods: ["GET"],
+  authLevel: "anonymous",
+  route: "tasks/{id}",
+  handler: withErrorHandler(GetTaskHandler),
 });
