@@ -35,3 +35,11 @@ export function getTasksContainer(): Container {
   const containerName = process.env.COSMOS_CONTAINER_NAME || "Tasks";
   return getDatabase().container(containerName);
 }
+
+/**
+ * Returns the Settings container instance.
+ */
+export function getSettingsContainer(): Container {
+  const containerName = process.env.COSMOS_SETTINGS_CONTAINER_NAME || "Settings";
+  return getDatabase().container(containerName);
+}

@@ -103,6 +103,13 @@ export function validateCreateTask(input: unknown): ValidationResult {
     }
   }
 
+  // Optional: customFields
+  if (body.customFields !== undefined) {
+    if (typeof body.customFields !== "object" || body.customFields === null || Array.isArray(body.customFields)) {
+      errors.push({ field: "customFields", message: "customFields must be a JSON object" });
+    }
+  }
+
   return { isValid: errors.length === 0, errors };
 }
 
@@ -128,7 +135,7 @@ export function validateUpdateTask(input: unknown): ValidationResult {
   }
 
   // Must have at least one field to update
-  const allowedFields = ["title", "description", "dueDate", "priority", "status", "tags"];
+  const allowedFields = ["title", "description", "dueDate", "priority", "status", "tags", "customFields"];
   const updateFields = Object.keys(body).filter((key) => allowedFields.includes(key));
   if (updateFields.length === 0) {
     errors.push({ field: "body", message: "At least one field must be provided for update" });
@@ -185,6 +192,13 @@ export function validateUpdateTask(input: unknown): ValidationResult {
           errors.push({ field: `tags[${i}]`, message: "each tag must be at most 50 characters" });
         }
       }
+    }
+  }
+
+  // Optional: customFields
+  if (body.customFields !== undefined) {
+    if (typeof body.customFields !== "object" || body.customFields === null || Array.isArray(body.customFields)) {
+      errors.push({ field: "customFields", message: "customFields must be a JSON object" });
     }
   }
 
